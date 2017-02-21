@@ -6,6 +6,8 @@ module.exports = class Visuals {
 			if (!ROOM_VISUALS_ALL && !room.my) continue;
 			if (!room.controller) continue;
 			
+			Visuals.collectSparklineStats();
+			
 			if (Memory.heatmap === undefined) Memory.heatmap = false;
 			
 			if (VISUALS.HEATMAP) {
@@ -68,6 +70,26 @@ module.exports = class Visuals {
 		}
 	}
 	
+	static drawSparkline(room, x, y, w, h, values, options) {
+		_.forEach(options, option => {
+			room.visual.poly(_.map(values, (v, i) => [x + w * (i / (values.length - 1)), y + h * (1 - (v[option.key] - option.min) / (option.max - option.min))]), option);
+		});
+	}
+	
+	static collectSparklineStats() {
+		if (!_.get(Memory, 'visualStats.cpu')) {
+			_.set(Memory, 'visualStats.cpu', []);
+		}
+		Memory.visualStats.cpu.push({
+			limit: Game.cpu.limit,
+			bucket: Game.cpu.bucket,
+			cpu: Game.cpu.getUsed(),
+		});
+		if (Memory.visualStats.cpu.length >= 100) {
+			Memory.visualStats.cpu.shift();
+		}
+	}
+	
 	static drawRoomInfo(room) {
 		const vis = new RoomVisual(room.name);
 		let x;
@@ -90,12 +112,9 @@ module.exports = class Visuals {
 		} else if (room.controller.reservation) {
 			RCL_PERCENTAGE = 0;
 			text = `Reserved: ${room.controller.reservation.ticksToEnd}`;
-		} else if (room.controller.owner) {
+		} else {
 			RCL_PERCENTAGE = room.controller.progress / room.controller.progressTotal;
 			text = `RCL: ${room.controller.level} (${(RCL_PERCENTAGE * 100).toFixed(2)}%)`;
-		} else {
-			RCL_PERCENTAGE = 0;
-			text = `Unowned`;
 		}
 		vis.rect(x, y - 0.75, RCL_PERCENTAGE * sectionWidth, 1, {fill: getColourByPercentage(RCL_PERCENTAGE, true), opacity: BAR_STYLE.opacity});
 		vis.text(text, x + sectionWidth / 2, y);
@@ -154,6 +173,30 @@ module.exports = class Visuals {
 			});
 			vis.text(`Energy: ${room.energyAvailable}/${room.energyCapacityAvailable} (${(ENERGY_PERCENTAGE * 100).toFixed(2)}%)`, x + sectionWidth / 2, y);
 		}
+		
+		Visuals.drawSparkline(room, 1.5, 46.5, 20, 2, _.map(Memory.visualStats.cpu, (v, i) => ({
+			cpu: Memory.visualStats.cpu[i].cpu,
+			bucket: Memory.visualStats.cpu[i].bucket,
+			limit: Memory.visualStats.cpu[i].limit,
+		})), [{
+			key: 'limit',
+			min: Game.cpu.limit * 0.5,
+			max: Game.cpu.limit * 1.5,
+			stroke: '#808080',
+			opacity: 0.25,
+		}, {
+			key: 'cpu',
+			min: Game.cpu.limit * 0.5,
+			max: Game.cpu.limit * 1.5,
+			stroke: '#FFFF00',
+			opacity: 0.5,
+		}, {
+			key: 'bucket',
+			min: 0,
+			max: 10000,
+			stroke: '#00FFFF',
+			opacity: 0.5,
+		}]);
 	}
 	
 	static drawSpawnInfo(spawn) {
@@ -198,8 +241,6 @@ module.exports = class Visuals {
 			line0 = 'L: Reserved';
 			line1 = `P: ${controller.reservation.username}`;
 			line2 = `D: ${controller.reservation.ticksToEnd}`;
-		} else if (!controller.owner) {
-			return;
 		}
 		vis.text(line0, BASE_X, y, style);
 		if (line1) {
@@ -326,9 +367,9 @@ module.exports = class Visuals {
 				const prefix = outgoing ? '+' : '-';
 				let text = '';
 				if ( toSelf ) {
-				    text = `${transaction.to} : ${transaction.amount} ${transaction.resourceType}`;
+					text = `${transaction.to} : ${transaction.amount} ${transaction.resourceType}`;
 				} else {
-				    text = `${prefix}${transaction.amount * transaction.order.price}`;
+					text = `${prefix}${transaction.amount * transaction.order.price}`;
 				}
 				//const detailedText = `${prefix}${transaction.amount * transaction.order.price} : ${transaction.resourceType} * ${transaction.amount}`;
 				vis.text(text, x, y, {size: 0.4, color: colour,});
