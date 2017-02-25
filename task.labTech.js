@@ -41,12 +41,15 @@ mod.checkForRequiredCreeps = (flag) => {
             { // spawn room selection params
                 targetRoom: flag.pos.roomName, 
                 minEnergyCapacity: 1000,
-                rangeRclRatio: 6
+                rangeRclRatio: 6,
+                maxRange: 1,
+                explicit: true,
+                allowTargetRoom: true
             },
             creepSetup => { // callback onQueued
                 let memory = Task.labTech.memory(Game.flags[creepSetup.destiny.targetName]);
                 memory.queued.push({
-                    room: flag.pos.roomName,
+                    room: creepSetup.queueRoom,
                     name: creepSetup.name
             });
         });
