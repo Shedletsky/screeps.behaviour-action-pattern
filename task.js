@@ -12,6 +12,8 @@ mod.flush = function () {
         Task.attackController,
         Task.robbing,
         Task.reputation,
+        Task.powerMining,
+        Task.labTech,
     ];
     for (let i = tasks.length - 1; i >= 0; i--) {
         if (tasks[i].flush) {
@@ -31,6 +33,8 @@ mod.register = function () {
         Task.attackController,
         Task.robbing,
         Task.reputation,
+        Task.powerMining,
+        Task.labTech,
     ];
     for (let i = tasks.length - 1; i >= 0; i--) {
         if (tasks[i].register) {

@@ -144,6 +144,8 @@ global.install = () => {
         attackController: load("task.attackController"),
         robbing: load("task.robbing"),
         reputation: load("task.reputation"),
+        powerMining: load("task.powerMining"),
+        labTech: load("task.labTech"),
     });
     Creep.Action = load("creep.Action");
     Creep.Setup = load("creep.Setup");
@@ -151,7 +153,7 @@ global.install = () => {
         action: {
             attackController: load("creep.action.attackController"),
             avoiding: load("creep.action.avoiding"),
-            building: load("creep.action.building"), 
+            building: load("creep.action.building"),
             charging: load("creep.action.charging"),
             claiming: load("creep.action.claiming"),
             defending: load("creep.action.defending"),
@@ -166,6 +168,7 @@ global.install = () => {
             idle: load("creep.action.idle"),
             invading: load("creep.action.invading"),
             picking: load("creep.action.picking"),
+            pickPower:load("creep.action.pickPower"),
             reallocating:load("creep.action.reallocating"),
             recycling:load("creep.action.recycling"),
             repairing: load("creep.action.repairing"),
@@ -192,7 +195,10 @@ global.install = () => {
             recycler: load("creep.behaviour.recycler"),
             ranger: load("creep.behaviour.ranger"),
             upgrader: load("creep.behaviour.upgrader"),
-            worker: load("creep.behaviour.worker")
+            worker: load("creep.behaviour.worker"),
+            powerMiner: load("creep.behaviour.powerMiner"),
+            powerHealer: load("creep.behaviour.powerHealer"),
+            powerHauler: load("creep.behaviour.powerHauler")
         },
         setup: {
             hauler: load("creep.setup.hauler"),
@@ -219,6 +225,7 @@ global.install = () => {
     if( global.mainInjection.extend ) global.mainInjection.extend();
 };
 global.install();
+require('traveler')({exportTraveler: false, installTraveler: false, installPrototype: true, defaultStuckValue: 2, reportThreshold: TRAVELER_THRESHOLD});
 
 let cpuAtFirstLoop;
 module.exports.loop = function () {
@@ -254,7 +261,9 @@ module.exports.loop = function () {
     if( global.mainInjection.flush ) global.mainInjection.flush();
 
     // analyze environment
-    FlagDir.analyze();
+    if (!FlagDir.analyze()) {
+        return;
+    }
     Room.analyze();
     Population.analyze();
     // custom analyze
