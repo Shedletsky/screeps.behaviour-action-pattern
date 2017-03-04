@@ -217,15 +217,17 @@ global.install = () => {
     FlagDir.extend();
     // custom extend
     if( global.mainInjection.extend ) global.mainInjection.extend();
+    if (DEBUG) logSystem('Global.install', 'Code reloaded.');
 };
 global.install();
 
 let cpuAtFirstLoop;
 module.exports.loop = function () {
     const cpuAtLoop = Game.cpu.getUsed();
+    let p = startProfiling('main', cpuAtLoop);
     // let the cpu recover a bit above the threshold before disengaging to prevent thrashing
     Memory.CPU_CRITICAL = Memory.CPU_CRITICAL ? Game.cpu.bucket < CRITICAL_BUCKET_LEVEL + CRITICAL_BUCKET_OVERFILL : Game.cpu.bucket < CRITICAL_BUCKET_LEVEL;
-
+    p.checkCPU('deserialize memory', 5);
     if (!cpuAtFirstLoop) cpuAtFirstLoop = cpuAtLoop;
 
     // ensure required memory namespaces
@@ -241,11 +243,8 @@ module.exports.loop = function () {
     if (Memory.cloaked === undefined) {
         Memory.cloaked = {};
     }
-
     // ensure up to date parameters
     _.assign(global, load("parameter"));
-    global.isNewServer = Game.cacheTime !== Game.time-1 || Game.time - Game.lastServerSwitch > 50; // enforce reload after 50 ticks
-    if( global.isNewServer ) Game.lastServerSwitch = Game.time;
 
     // Flush cache
     Events.flush();
@@ -255,11 +254,15 @@ module.exports.loop = function () {
     Task.flush();
     // custom flush
     if( global.mainInjection.flush ) global.mainInjection.flush();
+    p.checkCPU('flush', 5);
 
     // analyze environment
     FlagDir.analyze();
+    p.checkCPU('FlagDir.analyze', 2);
     Room.analyze();
+    p.checkCPU('Room.analyze', 2);
     Population.analyze();
+    p.checkCPU('Population.analyze', 2);
     // custom analyze
     if( global.mainInjection.analyze ) global.mainInjection.analyze();
 
@@ -269,13 +272,19 @@ module.exports.loop = function () {
     Task.register();
     // custom register
     if( global.mainInjection.register ) global.mainInjection.register();
+    p.checkCPU('register', 2);
 
     // Execution
     Population.execute();
+    p.checkCPU('population.execute', 5);
     FlagDir.execute();
+    p.checkCPU('flagDir.execute', 5);
     Room.execute();
+    p.checkCPU('room.execute', 5);
     Creep.execute();
+    p.checkCPU('creep.execute', 5);
     Spawn.execute();
+    p.checkCPU('spawn.execute', 5);
     // custom execute
     if( global.mainInjection.execute ) global.mainInjection.execute();
 
@@ -283,16 +292,22 @@ module.exports.loop = function () {
     if( !Memory.statistics || ( Memory.statistics.tick && Memory.statistics.tick + TIME_REPORT <= Game.time ))
         load("statistics").process();
     processReports();
+    p.checkCPU('processReports', 2);
     FlagDir.cleanup();
+    p.checkCPU('FlagDir.cleanup', 2);
     Population.cleanup();
+    p.checkCPU('Population.cleanup', 2);
     // custom cleanup
     if( global.mainInjection.cleanup ) global.mainInjection.cleanup();
 
     if ( ROOM_VISUALS && !Memory.CPU_CRITICAL ) Visuals.run(); // At end to correctly display used CPU.
+    p.checkCPU('visuals', 5);
 
     if ( GRAFANA && Game.time % GRAFANA_INTERVAL === 0 ) Grafana.run();
+    p.checkCPU('grafana', 5);
 
     Game.cacheTime = Game.time;
 
     if( DEBUG && TRACE ) trace('main', {cpuAtLoad, cpuAtFirstLoop, cpuAtLoop, cpuTick: Game.cpu.getUsed(), isNewServer: global.isNewServer, lastServerSwitch: Game.lastServerSwitch, main:'cpu'});
+    p.totalCPU();
 };

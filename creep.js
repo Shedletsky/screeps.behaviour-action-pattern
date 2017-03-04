@@ -56,6 +56,7 @@ mod.extend = function(){
                     return;
                 }
             }
+            let p = startProfiling('Creep.run');
             this.repairNearby();
             if( DEBUG && TRACE ) trace('Creep', {creepName:this.name, pos:this.pos, Behaviour: behaviour && behaviour.name, Creep:'run'});
             if( behaviour ) behaviour.run(this);
@@ -111,6 +112,7 @@ mod.extend = function(){
                 Creep.behaviour.ranger.heal(this);
                 if( SAY_ASSIGNMENT ) this.say(String.fromCharCode(10133), SAY_PUBLIC);
             }
+            p.checkCPU(this.name, 5, this.data.creepType);
         }
 
         strategy.freeStrategy(this);

@@ -7,6 +7,7 @@ let mod = {
     DEBUG: true, // gimme some more details, use false not undefined to unset
     DEBUG_LOGISTICS: false, // console log notes from hauler creeps running action.reallocating
     TRACE: false, // use Memory.debugTrace for low-level information
+    PROFILE: false, // enable CPU profiling
     GRAFANA: false, // track for Grafana data
     GRAFANA_INTERVAL: 3, // loops between Grafana tracking - No lower than 3.
     CENSUS_ANNOUNCEMENTS: true, // log birth and death

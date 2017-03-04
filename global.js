@@ -392,4 +392,79 @@ mod.guid = function(){
         return v.toString(16);
     });
 };
+mod.profiler = null;
+mod._resetProfiler = false;
+mod.resetProfiler = function() {
+    mod._resetProfiler = true;
+    return 'Profiling data will be reset on the next tick.';
+};
+mod.saveProfiler = function() {
+    if (!mod._resetProfiler) Memory.profiler = mod.profiler;
+    else {
+        mod.profiler = null;
+        delete Memory.profiler;
+        mod._resetProfiler = false;
+    }
+};
+mod.startProfiling = function(name, startCPU) {
+    let checkCPU = function(localName, limit, type) {};
+    let totalCPU = function() {};
+    if (PROFILE || DEBUG) {
+        if (!mod.profiler) {
+            if (!_.isUndefined(Memory.profiler)) logSystem('Profiler', 'loading profiler data.');
+            else logSystem('Profiler', 'resetting profiler data.');
+            mod.profiler = _.isUndefined(Memory.profiler) ? {
+                totalCPU: 0,
+                totalTicks: 0,
+                types: {}
+            } : Memory.profiler;
+        }
+        const onLoad = startCPU || Game.cpu.getUsed();
+        let start = onLoad;
+        if (PROFILE) {
+            checkCPU = function(localName, limit, type) {
+                let current = Game.cpu.getUsed();
+                let used = _.round(current - start, 2);
+                if (!limit || used > limit) {
+                    logSystem(name + ':' + localName, used);
+                }
+                if (type) {
+                    if (_.isUndefined(mod.profiler.types[type])) mod.profiler.types[type] = {totalCPU: 0, count: 0, totalCount: 0};
+                    mod.profiler.types[type].totalCPU = mod.profiler.types[type].totalCPU + used;
+                    mod.profiler.types[type].count++;
+                }
+                start = current;
+            };
+        }
+        totalCPU = function() {
+            const totalUsed = Game.cpu.getUsed() - onLoad;
+            mod.profiler.totalCPU = mod.profiler.totalCPU + totalUsed;
+            mod.profiler.totalTicks++;
+            const avgCPU = mod.profiler.totalCPU / mod.profiler.totalTicks;
+            if (PROFILE && _.size(mod.profiler.types) > 0) {
+                let heading = '';
+                while (heading.length < 30) heading += ' ';
+                global.logSystem(heading, '(avg/creep/tick) (active) (weighted avg) (executions)');
+                for (let type in mod.profiler.types) {
+                    let data = mod.profiler.types[type];
+                    data.totalCount = data.totalCount + data.count;
+                    const typeAvg = _.round(data.totalCPU / data.totalCount, 3);
+                    let heading = type + ': ';
+                    while (heading.length < 30) heading += ' ';
+                    global.logSystem(heading, '     ' + typeAvg + '          ' +
+                        data.count + '       ' + (_.round(typeAvg * data.count, 3)) + '          ' + data.totalCount );
+                    data.count = 0;
+                }
+            }
+            logSystem(name, ' loop:' + _.round(totalUsed, 2) + ' other:' + _.round(onLoad, 2) + ' avg:' + _.round(avgCPU, 2) + ' ticks:' +
+                mod.profiler.totalTicks + ' bucket:' + Game.cpu.bucket, 2);
+            if (PROFILE) console.log('\n');
+            mod.saveProfiler();
+        };
+    }
+    return {
+        checkCPU: checkCPU,
+        totalCPU: totalCPU,
+    };
+};
 mod = _.bindAll(mod);
