@@ -112,7 +112,7 @@ mod.extend = function(){
                 Creep.behaviour.ranger.heal(this);
                 if( SAY_ASSIGNMENT ) this.say(String.fromCharCode(10133), SAY_PUBLIC);
             }
-            p.checkCPU(this.name, 5, this.data.creepType);
+            p.checkCPU(this.name, 5, this.data ? this.data.creepType : 'noType');
         }
 
         strategy.freeStrategy(this);

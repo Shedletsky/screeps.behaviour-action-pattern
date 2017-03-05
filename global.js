@@ -392,6 +392,16 @@ mod.guid = function(){
         return v.toString(16);
     });
 };
+mod.memoryUsage = function(key) {
+    const mem = key ? Memory[key] : Memory;
+    let total = 0;
+    for (const key in mem) {
+        const sum = JSON.stringify(mem[key]).length / 1024;
+        total += sum;
+        logSystem(key, _.round(sum, 2) + ' kb');
+    }
+    return 'Total usage:' + _.round(total, 2) + ' kb'; 
+};
 mod.profiler = null;
 mod.resetProfiler = function() {
     mod.loadProfiler(true);
