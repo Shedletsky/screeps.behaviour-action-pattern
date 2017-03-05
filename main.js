@@ -225,9 +225,9 @@ let cpuAtFirstLoop;
 module.exports.loop = function () {
     const cpuAtLoop = Game.cpu.getUsed();
     let p = startProfiling('main', cpuAtLoop);
+    p.checkCPU('deserialize memory', 5); // the profiler makes an access to memory on startup
     // let the cpu recover a bit above the threshold before disengaging to prevent thrashing
     Memory.CPU_CRITICAL = Memory.CPU_CRITICAL ? Game.cpu.bucket < CRITICAL_BUCKET_LEVEL + CRITICAL_BUCKET_OVERFILL : Game.cpu.bucket < CRITICAL_BUCKET_LEVEL;
-    p.checkCPU('deserialize memory', 5);
     if (!cpuAtFirstLoop) cpuAtFirstLoop = cpuAtLoop;
 
     // ensure required memory namespaces

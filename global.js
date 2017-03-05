@@ -393,31 +393,37 @@ mod.guid = function(){
     });
 };
 mod.profiler = null;
-mod._resetProfiler = false;
 mod.resetProfiler = function() {
-    mod._resetProfiler = true;
-    return 'Profiling data will be reset on the next tick.';
+    mod.loadProfiler(true);
 };
-mod.saveProfiler = function() {
-    if (!mod._resetProfiler) Memory.profiler = mod.profiler;
-    else {
-        mod.profiler = null;
-        delete Memory.profiler;
-        mod._resetProfiler = false;
+mod.loadProfiler = function(reset) {
+    if (reset) {
+        logSystem('Profiler', 'resetting profiler data.');
+        Memory.profiler = {
+            totalCPU: 0,
+            totalTicks: 0,
+            types: {},
+            validTick: Game.time
+        };
     }
+    mod.profiler = Memory.profiler;
 };
 mod.startProfiling = function(name, startCPU) {
     let checkCPU = function(localName, limit, type) {};
-    let totalCPU = function() {};
+    let totalCPU = function() {
+        // if you would like to do a baseline comparison
+        // if (_.isUndefined(Memory.profiling)) Memory.profiling = {ticks:0, cpu: 0};
+        // let thisTick = Game.cpu.getUsed() - startCPU;
+        // Memory.profiling.ticks++;
+        // Memory.profiling.cpu += thisTick;
+        // logSystem('Total', _.round(thisTick, 2) + ' ' + _.round(Memory.profiling.cpu / Memory.profiling.ticks, 2));
+    };
     if (PROFILE || DEBUG) {
-        if (!mod.profiler) {
-            if (!_.isUndefined(Memory.profiler)) logSystem('Profiler', 'loading profiler data.');
-            else logSystem('Profiler', 'resetting profiler data.');
-            mod.profiler = _.isUndefined(Memory.profiler) ? {
-                totalCPU: 0,
-                totalTicks: 0,
-                types: {}
-            } : Memory.profiler;
+        if (_.isUndefined(Memory.profiler)) resetProfiler();
+        else if (!mod.profiler ||
+            mod.profiler.validTick !== Memory.profiler.validTick ||
+            mod.profiler.totalTicks < Memory.profiler.totalTicks) {
+            loadProfiler();
         }
         const onLoad = startCPU || Game.cpu.getUsed();
         let start = onLoad;
@@ -439,7 +445,7 @@ mod.startProfiling = function(name, startCPU) {
         totalCPU = function() {
             const totalUsed = Game.cpu.getUsed() - onLoad;
             mod.profiler.totalCPU = mod.profiler.totalCPU + totalUsed;
-            mod.profiler.totalTicks++;
+            mod.profiler.totalTicks = mod.profiler.totalTicks + 1;
             const avgCPU = mod.profiler.totalCPU / mod.profiler.totalTicks;
             if (PROFILE && _.size(mod.profiler.types) > 0) {
                 let heading = '';
@@ -459,7 +465,7 @@ mod.startProfiling = function(name, startCPU) {
             logSystem(name, ' loop:' + _.round(totalUsed, 2) + ' other:' + _.round(onLoad, 2) + ' avg:' + _.round(avgCPU, 2) + ' ticks:' +
                 mod.profiler.totalTicks + ' bucket:' + Game.cpu.bucket, 2);
             if (PROFILE) console.log('\n');
-            mod.saveProfiler();
+            Memory.profiler = mod.profiler;
         };
     }
     return {
