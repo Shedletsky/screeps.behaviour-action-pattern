@@ -7,7 +7,7 @@ let Setup = function(typeName){
         maxMulti: 0,
         maxCount: 0,
         maxWeight: 0
-    },
+    };
     this.RCL = {
         1: this.none,
         2: this.none,
@@ -17,7 +17,7 @@ let Setup = function(typeName){
         6: this.none,
         7: this.none,
         8: this.none
-    }
+    };
 
     this.type = typeName;
     this.minControllerLevel = 0;
@@ -28,19 +28,19 @@ let Setup = function(typeName){
 
     this.rclProperty = Setup.rclProperty;
     this.SelfOrCall = function(obj, param) {
-        if( obj == null ) return null;
+        if( obj === null ) return null;
         if (typeof obj === 'function' )
             return obj.apply(this, [param]);
         else return obj;
     };
-    this.fixedBody = this.rclProperty('fixedBody');
-    this.multiBody = this.rclProperty('multiBody');
-    this.minAbsEnergyAvailable = this.rclProperty('minAbsEnergyAvailable');
-    this.minEnergyAvailable = this.rclProperty('minEnergyAvailable'); // 1 = full
-    this.minMulti = this.rclProperty('minMulti');
-    this.maxMulti = this.rclProperty('maxMulti');
-    this.maxCount = this.rclProperty('maxCount');
-    this.maxWeight = this.rclProperty('maxWeight');
+    this._fixedBody = this.rclProperty('fixedBody');
+    this._multiBody = this.rclProperty('multiBody');
+    this._minAbsEnergyAvailable = this.rclProperty('minAbsEnergyAvailable');
+    this._minEnergyAvailable = this.rclProperty('minEnergyAvailable'); // 1 = full
+    this._minMulti = this.rclProperty('minMulti');
+    this._maxMulti = this.rclProperty('maxMulti');
+    this._maxCount = this.rclProperty('maxCount');
+    this._maxWeight = this.rclProperty('maxWeight');
 
     this.buildParams = function(spawn){
         var memory = {
@@ -57,7 +57,7 @@ let Setup = function(typeName){
         memory.cost = Creep.bodyCosts(memory.parts);
         memory.mother = spawn.name;
         memory.home = spawn.pos.roomName;
-        for( var son = 1; memory.name == null || Game.creeps[memory.name]; son++ ) {
+        for( var son = 1; memory.name === null || Game.creeps[memory.name]; son++ ) {
             memory.name = this.type + '-' + memory.cost + '-' + son;
         }
         return memory;
@@ -68,8 +68,8 @@ let Setup = function(typeName){
             return false;
         }
 
-        let minAbsEnergyAvailable = this.SelfOrCall(this.minAbsEnergyAvailable, room);
-        let minEnergyAvailable = this.SelfOrCall(this.minEnergyAvailable, room);
+        let minAbsEnergyAvailable = this.SelfOrCall(this._minAbsEnergyAvailable, room);
+        let minEnergyAvailable = this.SelfOrCall(this._minEnergyAvailable, room);
         const absEnergy = room.remainingEnergyAvailable;
         const energy = room.relativeRemainingEnergyAvailable;
         if( absEnergy < minAbsEnergyAvailable ||
@@ -78,15 +78,15 @@ let Setup = function(typeName){
             return false;
         }
 
-        let maxCount = this.SelfOrCall(this.maxCount, room);
-        let maxWeight = this.SelfOrCall(this.maxWeight, room);
-        if( maxCount == 0 || maxWeight == 0 ) {
+        let maxCount = this.SelfOrCall(this._maxCount, room);
+        let maxWeight = this.SelfOrCall(this._maxWeight, room);
+        if( maxCount === 0 || maxWeight === 0 ) {
             if (DEBUG && TRACE) trace('Setup', {setupType:this.type, room:room.name, maxCount, maxWeight, Setup:'isValidSetup'}, 'too many creeps');
             return false;
         }
-        if( maxCount == null )
+        if( maxCount === null )
             maxCount = Infinity;
-        if( maxWeight == null )
+        if( maxWeight === null )
             maxWeight = Infinity;
 
         let existingCount = 0;
@@ -128,12 +128,12 @@ let Setup = function(typeName){
         return existingWeight;
     };
     this.parts = function(room){
-        let fixedBody = this.SelfOrCall(this.fixedBody, room);
-        let multiBody = this.SelfOrCall(this.multiBody, room);
+        let fixedBody = this.SelfOrCall(this._fixedBody, room);
+        let multiBody = this.SelfOrCall(this._multiBody, room);
         var parts = [];
-        let min = this.SelfOrCall(this.minMulti, room);
-        let maxMulti = this.SelfOrCall(this.maxMulti, room);
-        let maxWeight = this.SelfOrCall(this.maxWeight, room);
+        let min = this.SelfOrCall(this._minMulti, room);
+        let maxMulti = this.SelfOrCall(this._maxMulti, room);
+        let maxWeight = this.SelfOrCall(this._maxWeight, room);
         let maxMultiWeight;
         if( maxWeight ){
             let existingWeight = this.existingWeight(room);
@@ -183,7 +183,7 @@ let Setup = function(typeName){
     };
     this.maxCost = function(room){
         let c = this;
-        return (Creep.bodyCosts( c.SelfOrCall(this.multiBody, room) ) * c.SelfOrCall(this.maxMulti, room)) + (Creep.bodyCosts(c.SelfOrCall(this.fixedBody, room)));
+        return (Creep.bodyCosts( c.SelfOrCall(this._multiBody, room) ) * c.SelfOrCall(this._maxMulti, room)) + (Creep.bodyCosts(c.SelfOrCall(this._fixedBody, room)));
     };
 }
 module.exports = Setup;
@@ -234,5 +234,5 @@ Setup.rclProperty = function(property) {
         }
 
         return creepSetup.SelfOrCall(rcl(room)[property], room);
-    }
+    };
 };
