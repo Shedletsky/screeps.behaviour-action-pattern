@@ -94,7 +94,7 @@ let Setup = function(typeName){
         if( this.measureByHome ){
             let home = room.name;
             let count = entry => {
-                if( entry.creepType == this.type && entry.homeRoom == home ){
+                if( entry.creepType == this.type && entry.homeRoom == home && Setup.isWorkingAge(entry) ){
                     existingCount++;
                     existingWeight += entry.weight;
                 }
