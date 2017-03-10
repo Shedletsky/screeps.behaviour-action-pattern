@@ -185,7 +185,6 @@ mod.cleanup = function(){
     this.stale.forEach(clearMemory);
 };
 mod.flagType = function(flag) {
-    if (mod.isSpecialFlag(flag)) return 'specialFlag';
     for (const primary in FLAG_COLOR) {
         const obj = FLAG_COLOR[primary];
         if (flag.color === obj.color) {
