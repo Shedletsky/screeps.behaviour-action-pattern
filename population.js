@@ -56,6 +56,9 @@ mod.registerAction = function(creep, action, target, entry) {
         if( this.actionWeight[creep.action.name] === undefined )
             this.actionWeight[creep.action.name] = 0;
         else this.actionWeight[creep.action.name] -= entry.weight;
+
+        delete creep.data.determinatedSpot;
+        delete creep.data.determinatedTarget;
     }
     // register action
     entry.actionName = action.name;
@@ -262,6 +265,11 @@ mod.execute = function(){
 mod.cleanup = function(){
     let unregister = name => Population.unregisterCreep(name);
     this.died.forEach(unregister);
+};
+mod.sortEntries = function() {
+    let temp = {};
+    _.map(_.sortBy(Memory.population, p => p.creepName), c => temp[c.creepName] = c);
+    Memory.population = temp;
 };
 mod.stats = {
     creep: {

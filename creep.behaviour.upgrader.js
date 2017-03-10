@@ -80,7 +80,8 @@ mod.run = function(creep) {
                 let spawn = Game.spawns[creep.data.motherSpawn];
                 if( spawn ) {
                     let path = spot.findPathTo(spawn, {ignoreCreeps: true});
-                    if( path ) creep.data.predictedRenewal = creep.data.spawningTime + path.length; // road assumed
+                    const speed = creep.data.body ? Math.ceil(creep.data.body.work / (2 * creep.data.body.move)) : 1; // road assumed
+                    if( path ) creep.data.predictedRenewal = creep.data.spawningTime + (path.length * speed);
                 }
             }
         }
@@ -96,7 +97,7 @@ mod.run = function(creep) {
                 let store = _.find(creep.room.structures.links.controller, s => s.energy > 0 && creep.pos.isNearTo(s));
                 if( !store ) store = _.find(creep.room.structures.container.controller, s => s.store[RESOURCE_ENERGY] > 0 && creep.pos.isNearTo(s));
                 if( !store ) {
-                    store = creep.room.storage && creep.room.storage.store[RESOURCE_ENERGY] > MIN_STORAGE_ENERGY[creep.room.controller.level] &&
+                    store = creep.room.storage && creep.room.storage.charge > 0 &&
                         creep.pos.isNearTo(creep.room.storage);
                 }
                 if( !store ) {
