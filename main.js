@@ -255,15 +255,15 @@ module.exports.loop = function () {
     Task.flush();
     // custom flush
     if( global.mainInjection.flush ) global.mainInjection.flush();
-    p.checkCPU('flush', 5);
+    p.checkCPU('flush', FLUSH_LIMIT);
 
     // analyze environment
     FlagDir.analyze();
-    p.checkCPU('FlagDir.analyze', 2);
+    p.checkCPU('FlagDir.analyze', ANALYZE_LIMIT);
     Room.analyze();
-    p.checkCPU('Room.analyze', 2);
+    p.checkCPU('Room.analyze', ANALYZE_LIMIT);
     Population.analyze();
-    p.checkCPU('Population.analyze', 2);
+    p.checkCPU('Population.analyze', ANALYZE_LIMIT);
     // custom analyze
     if( global.mainInjection.analyze ) global.mainInjection.analyze();
 
@@ -273,19 +273,19 @@ module.exports.loop = function () {
     Task.register();
     // custom register
     if( global.mainInjection.register ) global.mainInjection.register();
-    p.checkCPU('register', 2);
+    p.checkCPU('register', REGISTER_LIMIT);
 
     // Execution
     Population.execute();
-    p.checkCPU('population.execute', 5);
+    p.checkCPU('population.execute', EXECUTE_LIMIT);
     FlagDir.execute();
-    p.checkCPU('flagDir.execute', 5);
+    p.checkCPU('flagDir.execute', EXECUTE_LIMIT);
     Room.execute();
-    p.checkCPU('room.execute', 5);
+    p.checkCPU('room.execute', EXECUTE_LIMIT);
     Creep.execute();
-    p.checkCPU('creep.execute', 5);
+    p.checkCPU('creep.execute', EXECUTE_LIMIT);
     Spawn.execute();
-    p.checkCPU('spawn.execute', 5);
+    p.checkCPU('spawn.execute', EXECUTE_LIMIT);
     // custom execute
     if( global.mainInjection.execute ) global.mainInjection.execute();
 
@@ -293,19 +293,19 @@ module.exports.loop = function () {
     if( !Memory.statistics || ( Memory.statistics.tick && Memory.statistics.tick + TIME_REPORT <= Game.time ))
         load("statistics").process();
     processReports();
-    p.checkCPU('processReports', 2);
+    p.checkCPU('processReports', ANALYZE_LIMIT);
     FlagDir.cleanup();
-    p.checkCPU('FlagDir.cleanup', 2);
+    p.checkCPU('FlagDir.cleanup', ANALYZE_LIMIT);
     Population.cleanup();
-    p.checkCPU('Population.cleanup', 2);
+    p.checkCPU('Population.cleanup', ANALYZE_LIMIT);
     // custom cleanup
     if( global.mainInjection.cleanup ) global.mainInjection.cleanup();
 
     if ( ROOM_VISUALS && !Memory.CPU_CRITICAL && Visuals ) Visuals.run(); // At end to correctly display used CPU.
-    p.checkCPU('visuals', 5);
+    p.checkCPU('visuals', EXECUTE_LIMIT);
 
     if ( GRAFANA && Game.time % GRAFANA_INTERVAL === 0 ) Grafana.run();
-    p.checkCPU('grafana', 5);
+    p.checkCPU('grafana', EXECUTE_LIMIT);
 
     Game.cacheTime = Game.time;
 
