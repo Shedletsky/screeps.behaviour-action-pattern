@@ -322,25 +322,21 @@ action.newTargetTerminal = function(creep) {
         };
         // check orders
         if (room.memory.resources && room.memory.resources.terminal[0]) {
-            let orders = room.memory.resources.terminal[0].orders;
+            let orders = room.memory.resources.terminal[0].orders.slice();
+            orders.push(RESOURCE_ENERGY);
             let type = null;
             let amount = 0;
             for (var i=0;i<orders.length;i++) {
                 type = orders[i].type;
                 amount = terminal.getNeeds(type);
-                if (amount > 0) break;
-            }
-            if (amount == 0) {
-                type = RESOURCE_ENERGY;
-                amount = terminal.getNeeds(type);
-            }
-            if (amount > 0) {
-                // found a needed resource so check lower priority containers
-                if (DEBUG && TRACE) trace('Action', { actionName: 'reallocating', roomName: room.name, creepName: creep.name, structureId: terminal.id, resourceType: type, needs: amount });
-                if (room.storage && room.storage.store[type] && !(type==RESOURCE_ENERGY && room.storage.charge < 0.5)) {
-                    if (DEBUG && TRACE) trace('Action', { actionName: 'reallocating', roomName: room.name, creepName: creep.name, targetStructureId: room.storage.id, resourceType: type, targetNeeds: room.storage.store[type] });
-                    creep.data.reallocating = type;
-                    return room.storage;
+                if (amount > 0) {
+                    // found a needed resource so check lower priority containers
+                    if (DEBUG && TRACE) trace('Action', { actionName: 'reallocating', roomName: room.name, creepName: creep.name, structureId: terminal.id, resourceType: type, needs: amount });
+                    if (room.storage && room.storage.store[type] && !(type==RESOURCE_ENERGY && room.storage.charge < 0.5)) {
+                        if (DEBUG && TRACE) trace('Action', { actionName: 'reallocating', roomName: room.name, creepName: creep.name, targetStructureId: room.storage.id, resourceType: type, targetNeeds: room.storage.store[type] });
+                        creep.data.reallocating = type;
+                        return room.storage;
+                    }
                 }
             }
         }
