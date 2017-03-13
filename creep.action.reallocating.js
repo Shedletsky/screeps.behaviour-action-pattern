@@ -494,10 +494,21 @@ action.unloadContainer = function(creep) {
     }
     for (let i=0;i<store.length;i++) {
         let res = store[i];
-        amount = -target.getNeeds(res);
-        if (amount > 0 && (target.structureType == STRUCTURE_LAB || target.getNeeds(res) < 0)) {
-            resource = res;
-            break;
+        if (res && target.store[res] > 0 && (target.structureType == STRUCTURE_LAB || target.getNeeds(res) < 0)) {
+            let dat = this.findNeeding(room, res, 1, target.id);
+            //if (dat && dat.structure.id == target.id) dat = null;
+            if (dat) {
+                amount = dat.amount;
+            }
+            //if (!amount) amount = -this.terminalNeeds(target, res);
+            if (amount > 0) {
+                resource = res;
+                break;
+            } else if (storage && dat && dat.structure.structureType == STRUCTURE_STORAGE && res == RESOURCE_ENERGY) {
+                amount = storage.storeCapacity-storage.sum;
+                resource = res;
+                break;
+            }
         }
     }
     if (resource) {
