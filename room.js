@@ -1846,8 +1846,8 @@ mod.extend = function(){
             for (let i=0;i<data.container.length;i++) {
                 let d = data.container[i];
                 let container = Game.getObjectById(d.id);
-                if (container && container.store[resourceType]) {
-                    let amount = container.store[resourceType];
+                if (container) {
+                    let amount = -container.getNeeds[resourceType];
                     if (amount >= amountMin) return { structure: container, amount: amount };
                 }
             }
