@@ -282,7 +282,7 @@ module.exports = class Visuals {
             const look = weakest.pos.lookFor(LOOK_STRUCTURES);
             const towers = _.find(look, o => o instanceof StructureTower);
 		    if (towers) {
-   				y += 0.4;
+                        y += 0.4;
 			} else {
 
                 const spawns = _.find(look, o => o instanceof StructureSpawn && o.spawning);
