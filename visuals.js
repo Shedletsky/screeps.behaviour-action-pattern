@@ -281,15 +281,14 @@ module.exports = class Visuals {
             let y = weakest.pos.y - 0.5; // base y pos - consistent with spawns, labs, and controllers
             const look = weakest.pos.lookFor(LOOK_STRUCTURES);
             const towers = _.find(look, o => o instanceof StructureTower);
-		    if (towers) {
-                        y += 0.4;
-			} else {
-
+            if (towers) {
+                y += 0.4;
+            } else {
                 const spawns = _.find(look, o => o instanceof StructureSpawn && o.spawning);
                 if (spawns && VISUALS.SPAWN) {
                 // if structure shares a position with a spawn (road, rampart), lower to next line
                 // spawn must be spawning, and spawn visuals must be enabled
-                y += 0.4;
+                    y += 0.4;
                 } else {
                     const labs = _.find(look, o => o instanceof StructureLab);
                     if (labs && VISUALS.LABS) {
@@ -369,11 +368,11 @@ module.exports = class Visuals {
     }
     
     static drawTowerInfo(tower) {
-		const vis = new RoomVisual(tower.room.name);
- 		const x = tower.pos.x + 1;
- 		const y = tower.pos.y - 0.5;
-		vis.text(`Energy: ${tower.energy}/${tower.energyCapacity}`, x, y, {font: 0.4, align: 'left'});
-	}	    
+        const vis = new RoomVisual(tower.room.name);
+        const x = tower.pos.x + 1;
+        const y = tower.pos.y - 0.5;
+        vis.text(`Energy: ${tower.energy}/${tower.energyCapacity}`, x, y, {font: 0.4, align: 'left'});
+    }
         
     static drawTransactions(room) {
         if (room.terminal) {
