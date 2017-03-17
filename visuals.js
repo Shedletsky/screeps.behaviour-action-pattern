@@ -57,8 +57,8 @@ module.exports = class Visuals {
                 Visuals.terminal(room);
             }
             if (VISUALS.TOWER) {
-			    room.structures.towers.forEach(t => Visuals.drawTowerInfo(t));
-			}
+	        room.structures.towers.forEach(t => Visuals.drawTowerInfo(t));
+	    }
             if (VISUALS.TRANSACTIONS) {
                 Visuals.drawTransactions(room);
             }
