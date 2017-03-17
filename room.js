@@ -586,12 +586,20 @@ mod.extend = function(){
             configurable: true,
             get: function() {
                 if( _.isUndefined(this._constructionSites) ) {
-                    this._constructionSites = this.find(FIND_MY_CONSTRUCTION_SITES);
+                    this._constructionSites = this.find(FIND_CONSTRUCTION_SITES);
                 }
                 return this._constructionSites;
             }
         },
-
+        'myConstructionSites': {
+            configurable: true,
+            get: function() {
+                if( _.isUndefined(this._myConstructionSites) ) {
+                    this._myConstructionSites = this.find(FIND_MY_CONSTRUCTION_SITES);
+                }
+                return this._myConstructionSites;
+            }
+        },
         'creeps': {
             configurable: true,
             get: function() {
@@ -818,48 +826,73 @@ mod.extend = function(){
                 return this.memory.mineralType;
             }
         },
-        'costMatrix': {
+        'structureMatrix': {
             configurable: true,
             get: function () {
-                if( _.isUndefined(Memory.pathfinder)) Memory.pathfinder = {};
-                if( _.isUndefined(Memory.pathfinder[this.name])) Memory.pathfinder[this.name] = {};
+                if (_.isUndefined(this._structureMatrix)) {
+                    const COSTMATRIX_CACHE_VERSION = 2; // change this to invalidate previously cached costmatrices
+                    const cacheValid = (roomName) => {
+                        if (_.isUndefined(Memory.pathfinder)) {
+                            Memory.pathfinder = {};
+                            Memory.pathfinder[roomName] = {};
+                            return false;
+                        } else if (_.isUndefined(Memory.pathfinder[roomName])) {
+                            Memory.pathfinder[roomName] = {};
+                            return false;
+                        }
+                        const mem = Memory.pathfinder[roomName];
+                        const ttl = Game.time - mem.updated;
+                        if (mem.version === COSTMATRIX_CACHE_VERSION && mem.costMatrix && ttl < COST_MATRIX_VALIDITY) {
+                            if (DEBUG && TRACE) trace('PathFinder', {roomName:this.name, ttl, PathFinder:'CostMatrix'}, 'cached costmatrix');
+                            return true;
+                        }
+                        return false;
+                    };
 
-                const ttl = Game.time - Memory.pathfinder[this.name].updated;
-                if( Memory.pathfinder[this.name].costMatrix && ttl < COST_MATRIX_VALIDITY) {
-                    if( DEBUG && TRACE ) trace('PathFinder', {roomName:this.name, ttl, PathFinder:'CostMatrix'}, 'cached costmatrix');
-                    return PathFinder.CostMatrix.deserialize(Memory.pathfinder[this.name].costMatrix);
-                }
-
-                if( DEBUG ) logSystem(this.name, 'Calulating cost matrix');
-                var costMatrix = new PathFinder.CostMatrix;
-                let setCosts = structure => {
-                    if(structure.structureType == STRUCTURE_ROAD) {
-                        costMatrix.set(structure.pos.x, structure.pos.y, 1);
-                    } else if(structure.structureType !== STRUCTURE_RAMPART || !structure.isPublic ) {
-                        costMatrix.set(structure.pos.x, structure.pos.y, 0xFF);
+                    if (cacheValid(this.name)) {
+                        this._structureMatrix = PathFinder.CostMatrix.deserialize(Memory.pathfinder[this.name].costMatrix);
+                    } else {
+                        if (DEBUG) logSystem(this.name, 'Calulating cost matrix');
+                        var costMatrix = new PathFinder.CostMatrix();
+                        let setCosts = structure => {
+                            const site = structure instanceof ConstructionSite;
+                            // don't walk on allied construction sites.
+                            if (site && !structure.my && Task.reputation.allyOwner(structure)) return costMatrix.set(structure.pos.x, structure.pos.y, 0xFF);
+                            if (structure.structureType === STRUCTURE_ROAD) {
+                                if (!site || USE_UNBUILT_ROADS)
+                                    return costMatrix.set(structure.pos.x, structure.pos.y, 1);
+                            } else if (OBSTACLE_OBJECT_TYPES.includes(structure.structureType)) {
+                                if (!site || Task.reputation.allyOwner(structure)) // don't set for hostile construction sites
+                                    return costMatrix.set(structure.pos.x, structure.pos.y, 0xFF);
+                            } else if (structure.structureType === STRUCTURE_RAMPART && !(structure.my || structure.isPublic)) {
+                                return costMatrix.set(structure.pos.x, structure.pos.y, 0xFF);
+                            }
+                        };
+                        this.structures.all.forEach(setCosts);
+                        this.constructionSites.forEach(setCosts);
+                        const prevTime = Memory.pathfinder[this.name].updated;
+                        Memory.pathfinder[this.name].costMatrix = costMatrix.serialize();
+                        Memory.pathfinder[this.name].updated = Game.time;
+                        Memory.pathfinder[this.name].version = COSTMATRIX_CACHE_VERSION;
+                        if( DEBUG && TRACE ) trace('PathFinder', {roomName:this.name, prevTime, structures:this.structures.all.length, PathFinder:'CostMatrix'}, 'updated costmatrix');
+                        this._structureMatrix = costMatrix;
                     }
-                };
-                this.structures.all.forEach(setCosts);
-
-                const prevTime = Memory.pathfinder[this.name].updated;
-                Memory.pathfinder[this.name].costMatrix = costMatrix.serialize();
-                Memory.pathfinder[this.name].updated = Game.time;
-                if( DEBUG && TRACE ) trace('PathFinder', {roomName:this.name, prevTime, structures:this.structures.all.length, PathFinder:'CostMatrix'}, 'updated costmatrix');
-                return costMatrix;
+                }
+                return this._structureMatrix;
             }
         },
-        'currentCostMatrix': {
+        'creepMatrix': {
             configurable: true,
             get: function () {
-                if (_.isUndefined(this._currentCostMatrix) ) {
-                    let costs = this.costMatrix;
+                if (_.isUndefined(this._creepMatrix) ) {
+                    const costs = this.structureMatrix.clone();
                     // Avoid creeps in the room
                     this.allCreeps.forEach(function(creep) {
                         costs.set(creep.pos.x, creep.pos.y, 0xff);
                     });
-                    this._currentCostMatrix = costs;
+                    this._creepMatrix = costs;
                 }
-                return this._currentCostMatrix;
+                return this._creepMatrix;
             }
         },
         'my': {
@@ -986,8 +1019,24 @@ mod.extend = function(){
                 return this._collapsed;
             }
         },
+        'hostile': {
+            configurable: true,
+            get: function() {
+                return this.memory.hostile;
+            }
+        },
     });
-
+    Room.prototype.registerIsHostile = function() {
+        if (this.controller) {
+            if (_.isUndefined(this.hostile) || typeof this.hostile === 'number') { // not overridden by user
+                if (this.controller.owner && !this.controller.my && !this.ally) {
+                    this.memory.hostile = this.controller.level;
+                } else {
+                    delete this.memory.hostile;
+                }
+            }
+        }
+    };
     Room.prototype.getBorder = function(roomName) {
         return _.findKey(Game.map.describeExits(this.name), function(name) {
             return this.name === name;
@@ -1020,13 +1069,13 @@ mod.extend = function(){
             if( options.checkOwner ){
                 const room = Game.rooms[roomName];
                 // allow for explicit overrides of hostile rooms using hostileRooms[roomName] = false
-                isMyOrNeutralRoom = Memory.rooms.hostileRooms[roomName] === false || (room &&
+                isMyOrNeutralRoom = this.hostile === false || (room &&
                                     room.controller &&
                                     (room.controller.my ||
                                     (room.controller.owner === undefined)));
             }
             if (!options.allowSK && mod.isSKRoom(roomName)) return 10;
-            if (!options.allowHostile && Memory.rooms.hostileRooms[roomName] &&
+            if (!options.allowHostile && this.hostile &&
                 roomName !== destination && roomName !== origin) {
                 return Number.POSITIVE_INFINITY;
             }
@@ -1554,7 +1603,7 @@ mod.extend = function(){
         return false;
     };
     Room.prototype.terminalBroker = function () {
-        if( !this.my || !this.terminal ) return;
+        if( !this.my || !this.terminal || !this.storage ) return;
         let that = this;
         let mineral = this.mineralType;
         let transacting = false;
@@ -1823,6 +1872,18 @@ mod.extend = function(){
                 break;
             default:
                 break;
+        }
+    };
+    Room.prototype.processPower = function() {
+        // run lab reactions WOO!
+        let powerSpawns = this.find(FIND_MY_STRUCTURES, { filter: (s) => { return s.structureType == STRUCTURE_POWER_SPAWN; } } );
+        for (var i=0;i<powerSpawns.length;i++) {
+            // see if the reaction is possible
+            let powerSpawn = powerSpawns[i];
+            if (powerSpawn.energy >= POWER_SPAWN_ENERGY_RATIO && powerSpawn.power >= 1) {
+                if (DEBUG && TRACE) trace('Room', { roomName: this.name, actionName: 'processPower' });
+                powerSpawn.processPower();
+            }
         }
     };
     Room.prototype.processPower = function() {
@@ -2297,7 +2358,7 @@ mod.extend = function(){
             }
             data.reactions.reactorMode = mode;
         }
-        
+
         return OK;
     };
     Room.prototype.placeReactionOrder = function(orderId, resourceType, amount, mode = REACTOR_MODE_BURST) {
@@ -2347,7 +2408,7 @@ mod.extend = function(){
             };
         }
         if ( this.memory.resources.powerSpawn === undefined ) this.memory.resources.powerSpawn = [];
-        
+
         let seed_a = Game.getObjectById(seed_a_id);
         let seed_b = Game.getObjectById(seed_b_id);
         if ( !seed_a || !seed_b || seed_a.structureType !== STRUCTURE_LAB || seed_b.structureType !== STRUCTURE_LAB ) return ERR_INVALID_TARGET;
@@ -2360,7 +2421,7 @@ mod.extend = function(){
         data.reactions.reactorMode = REACTOR_MODE_IDLE;
         data.reactions.seed_a = seed_a_id;
         data.reactions.seed_b = seed_b_id;
-        
+
         data_a = data.lab.find( l => l.id === seed_a_id );
         if ( data_a ) {
             data_a.reactionState = LAB_SEED;
@@ -2380,6 +2441,137 @@ mod.extend = function(){
                 OBSTACLE_OBJECT_TYPES.includes(o[o.type].structureType));
         };
         return look.filter(invalidObject).length == 0;
+    };
+    Room.prototype.exits = function(findExit, point) {
+        if (point === true) point = 0.5;
+        let positions;
+        if (findExit === 0) {
+            // portals
+            positions = _.chain(this.find(FIND_STRUCTURES)).filter(function(s) {
+                return s.structureType === STRUCTURE_PORTAL;
+            }).map('pos').value();
+        } else {
+            positions = this.find(findExit);
+        }
+
+        // assuming in-order
+        let maxX, maxY;
+        let map = {};
+        let limit = -1;
+        const ret = [];
+        for (let i = 0; i < positions.length; i++) {
+            const pos = positions[i];
+            if (!(_.get(map,[pos.x-1, pos.y]) || _.get(map,[pos.x,pos.y-1]))) {
+                if (point && limit !== -1) {
+                    ret[limit].x += Math.ceil(point * (maxX - ret[limit].x));
+                    ret[limit].y += Math.ceil(point * (maxY - ret[limit].y));
+                }
+                limit++;
+                ret[limit] = _.pick(pos, ['x','y']);
+                maxX = pos.x;
+                maxY = pos.y;
+                map = {};
+            }
+            _.set(map, [pos.x, pos.y], true);
+            maxX = Math.max(maxX, pos.x);
+            maxY = Math.max(maxY, pos.y);
+        }
+        if (point && limit !== -1) {
+            ret[limit].x += Math.ceil(point * (maxX - ret[limit].x));
+            ret[limit].y += Math.ceil(point * (maxY - ret[limit].y));
+        }
+        return ret;
+    }
+    Room.prototype.controlObserver = function() {
+        const OBSERVER = this.structures.observer;
+        if (!OBSERVER) return;
+        if (!this.memory.observer.rooms) this.initObserverRooms();
+        const ROOMS = this.memory.observer.rooms;
+        let lastLookedIndex = Number.isInteger(this.memory.observer.lastLookedIndex) ? this.memory.observer.lastLookedIndex : ROOMS.length;
+        let nextRoom;
+        let i = 0;
+        do { // look ma! my first ever do-while loop!
+            if (lastLookedIndex >= ROOMS.length) {
+                nextRoom = ROOMS[0];
+            }  else {
+                nextRoom = ROOMS[lastLookedIndex + 1];
+            }
+            lastLookedIndex = ROOMS.indexOf(nextRoom);
+            if (++i >= ROOMS.length) { // safety check - prevents an infinite loop
+                break;
+            }
+        } while (Memory.observerSchedule.includes(nextRoom) || nextRoom in Game.rooms);
+        this.memory.observer.lastLookedIndex = lastLookedIndex;
+        Memory.observerSchedule.push(nextRoom);
+        OBSERVER.observeRoom(nextRoom); // now we get to observe a room
+    };
+    Room.prototype.initObserverRooms = function() {
+        const OBSERVER_RANGE = OBSERVER_OBSERVE_RANGE > 10 ? 10 : OBSERVER_OBSERVE_RANGE; // can't be > 10
+        const PRIORITISE_HIGHWAY = OBSERVER_PRIORITISE_HIGHWAY;
+        const [x, y] = Room.calcGlobalCoordinates(this.name, (x,y) => [x,y]); // hacky get x,y
+        const [HORIZONTAL, VERTICAL] = Room.calcCardinalDirection(this.name);
+        let ROOMS = [];
+
+        for (let a = x - OBSERVER_RANGE; a < x + OBSERVER_RANGE; a++) {
+            for (let b = y - OBSERVER_RANGE; b < y + OBSERVER_RANGE; b++) {
+                let hor = HORIZONTAL;
+                let vert = VERTICAL;
+                let n = a;
+                if (a < 0) { // swap horizontal letter
+                    hor = hor === 'W' ? 'E' : 'W';
+                    n = Math.abs(a) - 1;
+                }
+                hor += n;
+                n = b;
+                if (b < 0) {
+                    vert = vert === 'N' ? 'S' : 'N';
+                    n = Math.abs(b) - 1;
+                }
+                vert += n;
+                const room = hor + vert;
+                if (room in Game.rooms && Game.rooms[room].my) continue; // don't bother adding the room to the array if it's owned by us
+                if (OBSERVER_OBSERVE_HIGHWAYS_ONLY && !Room.isHighwayRoom(room)) continue; // we only want highway rooms
+                ROOMS.push(room);
+            }
+        }
+        if (PRIORITISE_HIGHWAY) {
+            ROOMS = _.sortBy(ROOMS, v => {
+                return Room.isHighwayRoom(v) ? 0 : 1; // should work, I hope
+            });
+        }
+        this.memory.observer.rooms = ROOMS;
+    };
+    Room.prototype.isWalkable = function(x, y, look) {
+        if (!look) look = this.lookAt(x,y);
+        else look = look[y][x];
+        let invalidObject = o => {
+            return ((o.type == LOOK_TERRAIN && o.terrain == 'wall') ||
+                OBSTACLE_OBJECT_TYPES.includes(o[o.type].structureType));
+        };
+        return look.filter(invalidObject).length == 0;
+    };
+    Room.prototype.printCostMatrix = function(creepMatrix, aroundPos) {
+        const matrix = creepMatrix ? this.creepMatrix : this.costMatrix;
+        let startY = 0;
+        let endY = 50;
+        let startX = 0;
+        let endX = 50;
+        if (aroundPos) {
+            startY = Math.max(0, aroundPos.y - 3);
+            endY = Math.min(50, aroundPos.y + 4);
+            startX = Math.max(0, aroundPos.x - 3);
+            endX = Math.min(50, aroundPos.x + 4);
+        }
+        logSystem(this.name, "costMatrix:");
+        for (var y = startY; y < endY; y++) {
+            var line = "";
+            for (var x = startX; x < endX; x++) {
+                var val = matrix.get(x, y).toString(16);
+                if (val == "0") val = "";
+                line += ("   " + val).slice(-3);
+            }
+            logSystem(this.name, line);
+        }
     };
     Room.prototype.exits = function(findExit, point) {
         if (point === true) point = 0.5;
@@ -2505,6 +2697,7 @@ mod.flush = function(){
         if( global.isNewServer ) {
             delete room._my;
             delete room._constructionSites;
+            delete room._myConstructionSites;
             delete room._maxPerJob;
             delete room._minerals;
             delete room._structures;
@@ -2520,7 +2713,17 @@ mod.flush = function(){
         room.newInvader = [];
         room.goneInvader = [];
     };
+    Memory.observerSchedule = [];
     _.forEach(Game.rooms, clean);
+
+    // Temporary migration can be removed once traveler is merged into /dev
+    if (!_.isUndefined(Memory.rooms.hostileRooms)) {
+        for (roomName in Memory.rooms.hostileRooms) {
+            if (_.isUndefined(Memory.rooms[roomName])) Memory.rooms[roomName] = {};
+            Memory.rooms[roomName].hostile = Memory.rooms.hostileRooms[roomName];
+        }
+        delete Memory.rooms.hostileRooms;
+    }
 };
 mod.analyze = function(){
     let getEnvironment = room => {
@@ -2545,7 +2748,6 @@ mod.analyze = function(){
             room.processInvaders();
             room.processLabs();
             room.processPower();
-            if(AUTO_POWER_MINING) room.checkPowerBank();
             room.controlObserver();
         }
         catch(err) {

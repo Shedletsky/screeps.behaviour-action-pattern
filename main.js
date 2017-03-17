@@ -132,7 +132,7 @@ global.install = () => {
         Tower: load("tower"),
         Events: load('events'),
         Grafana: GRAFANA ? load('grafana') : undefined,
-        Visuals: ROOM_VISUALS && Game.cpu.bucket > CRITICAL_BUCKET_LEVEL ? load('visuals') : undefined,
+        Visuals: ROOM_VISUALS && !Memory.CPU_CRITICAL ? load('visuals') : undefined,
     });
     _.assign(global.Task, {
         guard: load("task.guard"),
@@ -215,14 +215,19 @@ global.install = () => {
     Room.extend();
     Spawn.extend();
     FlagDir.extend();
+    Task.populate();
     // custom extend
     if( global.mainInjection.extend ) global.mainInjection.extend();
 };
 global.install();
+require('traveler')({exportTraveler: false, installTraveler: true, installPrototype: true, defaultStuckValue: TRAVELER_STUCK_TICKS, reportThreshold: TRAVELER_THRESHOLD});
 
 let cpuAtFirstLoop;
 module.exports.loop = function () {
     const cpuAtLoop = Game.cpu.getUsed();
+    // let the cpu recover a bit above the threshold before disengaging to prevent thrashing
+    Memory.CPU_CRITICAL = Memory.CPU_CRITICAL ? Game.cpu.bucket < CRITICAL_BUCKET_LEVEL + CRITICAL_BUCKET_OVERFILL : Game.cpu.bucket < CRITICAL_BUCKET_LEVEL;
+
     if (!cpuAtFirstLoop) cpuAtFirstLoop = cpuAtLoop;
 
     // ensure required memory namespaces
@@ -253,8 +258,11 @@ module.exports.loop = function () {
     // custom flush
     if( global.mainInjection.flush ) global.mainInjection.flush();
 
-    // analyze environment
-    FlagDir.analyze();
+    // analyze environment, wait a tick if critical failure
+    if (!FlagDir.analyze()) {
+        logError('FlagDir.analyze failed, waiting one tick to sync flags');
+        return;
+    }
     Room.analyze();
     Population.analyze();
     // custom analyze
@@ -284,9 +292,9 @@ module.exports.loop = function () {
     Population.cleanup();
     // custom cleanup
     if( global.mainInjection.cleanup ) global.mainInjection.cleanup();
-	
-    if ( ROOM_VISUALS && Game.cpu.bucket > CRITICAL_BUCKET_LEVEL ) Visuals.run(); // At end to correctly display used CPU.
-    
+
+    if ( ROOM_VISUALS && !Memory.CPU_CRITICAL && Visuals ) Visuals.run(); // At end to correctly display used CPU.
+
     if ( GRAFANA && Game.time % GRAFANA_INTERVAL === 0 ) Grafana.run();
 
     Game.cacheTime = Game.time;

@@ -2,6 +2,10 @@ let mod = {};
 module.exports = mod;
 mod.name = 'remoteWorker';
 mod.run = function(creep) {
+    if (Creep.action.avoiding.run(creep)) {
+        return;
+    }
+
     // Assign next Action
     let oldTargetId = creep.data.targetId;
     if( creep.action == null || creep.action.name == 'idle' ) {
@@ -22,7 +26,6 @@ mod.nextAction = function(creep){
         // get some energy
         if( creep.sum < creep.carryCapacity * 0.8 ) {
             priority = [
-                Creep.action.avoiding,
                 Creep.action.picking,
                 Creep.action.uncharging,
                 Creep.action.withdrawing,
@@ -30,7 +33,6 @@ mod.nextAction = function(creep){
                 Creep.action.idle];
         } else {
             priority = [
-                Creep.action.avoiding,
                 Creep.action.repairing,
                 Creep.action.building,
                 Creep.action.recycling
@@ -59,10 +61,9 @@ mod.nextAction = function(creep){
     }
 };
 mod.gotoTargetRoom = function(creep){
-    Creep.action.travelling.assign(creep, Game.flags[creep.data.destiny.targetName]);
-    return;
+    const targetFlag = creep.data.destiny ? Game.flags[creep.data.destiny.targetName] : null;
+    if (targetFlag) return Creep.action.travelling.assignRoom(creep, targetFlag.pos.roomName);
 };
 mod.goHome = function(creep){
-    Creep.action.travelling.assign(creep, Game.rooms[creep.data.homeRoom].controller);
-    return;
+    return Creep.action.travelling.assignRoom(creep, creep.data.homeRoom);
 };
