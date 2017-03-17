@@ -1,0 +1,30 @@
+{
+  "ocs.internal": {
+    "reset": "upstream/dev",
+    "merge": [
+      "upstream/major/traveler",
+      "upstream/feature/actionRenewing",
+      "upstream/wip-train",
+      "upstream/change/refactorNeeds",
+      "upstream/wip-creepBody"
+    ]
+  },
+  "ocs.public": {
+    "reset": "upstream/dev",
+    "merge": [
+      "upstream/major/traveler",
+      "upstream/task/powerMiningDev",
+      "upstream/fix/defendersTravel",
+      "upstream/major/setupRclRefactor",
+      "upstream/change/refactorNeeds",
+      "upstream/change/infectObjects",
+      "upstream/fix/roomRecovery",
+      "upstream/bug/roomCollapsedWaste",
+      "upstream/task/labTechNew",
+      "feature/semiautoConstruction",
+      "Perrytheplatypus43-patch-3",
+      "fix/observerRoomNotAvailable",
+      "fix/regexChange"
+    ]
+  }
+}
