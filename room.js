@@ -449,6 +449,18 @@ mod.extend = function(){
                     return this._powerSpawn;
                 }
             },
+            'extensions': {
+                configurable: true,
+                get: function() {
+                    if (_.isUndefined(this.room.memory.extensions)) {
+                        this.room.saveExtensions();
+                    }
+                    if (_.isUndefined(this._extensions)) {
+                        this._extensions = this.room.memory.extensions.map(e => Game.getObjectById(e));
+                    }
+                    return this._extensions;
+                },
+            }
         });
     };
 
@@ -1236,6 +1248,11 @@ mod.extend = function(){
         };
         powerSpawns.forEach(add);
     };
+    Room.prototype.saveExtensions = function() {
+        this.memory.extensions = this.find(FIND_MY_STRUCTURES, {
+            filter: s => s instanceof StructureExtension
+        }).map(s => s.id);
+    };
     Room.prototype.saveContainers = function(){
         this.memory.container = [];
         let containers = this.structures.all.filter(
@@ -1412,6 +1429,96 @@ mod.extend = function(){
                 }
             }
             filledStorage.forEach(handleFilledStorage);
+        }
+    };
+    Room.prototype.processConstructionFlags = function() {
+        if (!this.my || !SEMI_AUTOMATIC_CONSTRUCTION) return;
+        const LEVEL = this.controller.level;
+        const POS = new RoomPosition(25, 25, this.name);
+        const ARGS = [POS, true];
+        const CONSTRUCT = (flag, type) => {
+            if (!flag) return;
+            const POS = flag.pos;
+            if (!POS) return;
+            const structures = POS.lookFor(LOOK_STRUCTURES).filter(s => !(s instanceof StructureRoad || s instanceof StructureRampart));
+            if (structures && structures.length) return; // pre-existing structure here
+            const r = POS.createConstructionSite(type);
+            if (REMOVE_CONSTRUCTION_FLAG && r === OK) flag.remove();
+        };
+        
+        // Extensions
+        let shortAmount = CONTROLLER_STRUCTURES[STRUCTURE_EXTENSION][LEVEL] - (this.structures.extensions.length + _.filter(this.constructionSites, s => s.structureType === STRUCTURE_EXTENSION).length);
+        if (shortAmount > 0) {
+            FlagDir.filter(FLAG_COLOR.construct, ...ARGS).splice(0, shortAmount).forEach(flag => {
+                CONSTRUCT(flag, STRUCTURE_EXTENSION);
+            });
+        }
+        
+        // Spawns
+        shortAmount = CONTROLLER_STRUCTURES[STRUCTURE_SPAWN][LEVEL] - (this.structures.spawns.length + _.filter(this.constructionSites, s => s.structureType === STRUCTURE_SPAWN).length);
+        if (shortAmount > 0) {
+            FlagDir.filter(FLAG_COLOR.construct.spawn, ...ARGS).splice(0, shortAmount).forEach(flag => {
+                CONSTRUCT(flag, STRUCTURE_SPAWN);
+            });
+        }
+        
+        // Towers
+        shortAmount = CONTROLLER_STRUCTURES[STRUCTURE_TOWER][LEVEL] - (this.structures.towers.length + _.filter(this.constructionSites, s => s.structureType === STRUCTURE_TOWER).length);
+        if (shortAmount > 0) {
+            FlagDir.filter(FLAG_COLOR.construct.tower, ...ARGS).splice(0, shortAmount).forEach(flag => {
+                CONSTRUCT(flag, STRUCTURE_TOWER);
+            });
+        }
+        
+        // Links
+        shortAmount = CONTROLLER_STRUCTURES[STRUCTURE_LINK][LEVEL] - (this.structures.links.length + _.filter(this.constructionSites, s => s.structureType === STRUCTURE_LINK).length);
+        if (shortAmount > 0) {
+            FlagDir.filter(FLAG_COLOR.construct.link, ...ARGS).splice(0, shortAmount).forEach(flag => {
+                CONSTRUCT(flag, STRUCTURE_LINK);
+            });
+        }
+        
+        // Labs
+        shortAmount = CONTROLLER_STRUCTURES[STRUCTURE_LAB][LEVEL] - (this.structures.labs.length + _.filter(this.constructionSites, s => s.structureType === STRUCTURE_LAB).length);
+        if (shortAmount > 0) {
+            FlagDir.filter(FLAG_COLOR.construct.lab, ...ARGS).splice(0, shortAmount).forEach(flag => {
+                CONSTRUCT(flag, STRUCTURE_LAB);
+            });
+        }
+        
+        // Storage
+        if (!this.storage) {
+            FlagDir.filter(FLAG_COLOR.construct.storage, ...ARGS).splice(0, 1).forEach(flag => {
+                CONSTRUCT(flag, STRUCTURE_STORAGE);
+            });
+        }
+        
+        // Terminal
+        if (!this.terminal) {
+            FlagDir.filter(FLAG_COLOR.construct.terminal, ...ARGS).splice(0, 1).forEach(flag => {
+                CONSTRUCT(flag, STRUCTURE_TERMINAL);
+            });
+        }
+        
+        // Observer
+        if (!this.structures.observer) {
+            FlagDir.filter(FLAG_COLOR.construct.observer, ...ARGS).splice(0, 1).forEach(flag => {
+                CONSTRUCT(flag, STRUCTURE_OBSERVER);
+            });
+        }
+        
+        // Nuker
+        if (!this.structures.nuker) {
+            FlagDir.filter(FLAG_COLOR.construct.nuker, ...ARGS).splice(0, 1).forEach(flag => {
+                CONSTRUCT(flag, STRUCTURE_NUKER);
+            });
+        }
+        
+        // Power Spawn
+        if (!this.structures.powerSpawn) {
+            FlagDir.filter(FLAG_COLOR.construct.powerSpawn, ...ARGS).splice(0, 1).forEach(flag => {
+                CONSTRUCT(flag, STRUCTURE_POWER_SPAWN);
+            });
         }
     };
     Room.prototype.updateResourceOrders = function () {
@@ -2739,6 +2846,7 @@ mod.analyze = function(){
                 room.saveObserver();
                 room.saveNuker();
                 room.savePowerSpawn();
+                room.saveExtensions();
                 room.saveContainers();
                 room.saveLinks();
                 room.saveLabs();
@@ -2746,6 +2854,7 @@ mod.analyze = function(){
                 room.updateRoomOrders();
                 room.terminalBroker();
                 room.initObserverRooms(); // to re-evaluate rooms, in case parameters are changed
+                room.processConstructionFlags();
             }
             room.roadConstruction();
             room.linkDispatcher();
