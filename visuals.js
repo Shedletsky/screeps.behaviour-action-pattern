@@ -281,7 +281,7 @@ module.exports = class Visuals {
             let y = weakest.pos.y - 0.5; // base y pos - consistent with spawns, labs, and controllers
             const look = weakest.pos.lookFor(LOOK_STRUCTURES);
             const towers = _.find(look, o => o instanceof StructureTower);
-            if (towers) {
+            if (towers && VISUALS.TOWER) {
                 y += 0.4;
             } else {
                 const spawns = _.find(look, o => o instanceof StructureSpawn && o.spawning);
