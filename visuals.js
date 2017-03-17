@@ -369,9 +369,7 @@ module.exports = class Visuals {
     
     static drawTowerInfo(tower) {
         const vis = new RoomVisual(tower.room.name);
-        const x = tower.pos.x + 1;
-        const y = tower.pos.y - 0.5;
-        vis.text(`Energy: ${tower.energy}/${tower.energyCapacity}`, x, y, {font: 0.4, align: 'left'});
+        vis.text(`E: ${tower.energy}/${tower.energyCapacity}`, tower.pos.x + 1, tower.pos.y - 0.5, {align: 'left', font: 0.4});
     }
         
     static drawTransactions(room) {
