@@ -221,6 +221,7 @@ global.install = () => {
     if (DEBUG) logSystem('Global.install', 'Code reloaded.');
 };
 global.install();
+require('traveler')({exportTraveler: false, installTraveler: true, installPrototype: true, defaultStuckValue: TRAVELER_STUCK_TICKS, reportThreshold: TRAVELER_THRESHOLD});
 
 let cpuAtFirstLoop;
 module.exports.loop = function () {
@@ -257,8 +258,11 @@ module.exports.loop = function () {
     if( global.mainInjection.flush ) global.mainInjection.flush();
     p.checkCPU('flush', FLUSH_LIMIT);
 
-    // analyze environment
-    FlagDir.analyze();
+    // analyze environment, wait a tick if critical failure
+    if (!FlagDir.analyze()) {
+        logError('FlagDir.analyze failed, waiting one tick to sync flags');
+        return;
+    }
     p.checkCPU('FlagDir.analyze', ANALYZE_LIMIT);
     Room.analyze();
     p.checkCPU('Room.analyze', ANALYZE_LIMIT);
